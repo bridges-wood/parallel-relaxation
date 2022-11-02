@@ -1,0 +1,7 @@
+# VSCode configuration
+.vscode/
+
+# C
+
+# Text files
+*.txt

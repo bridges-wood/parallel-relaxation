@@ -1,0 +1,23 @@
+#!/bin/bash
+
+#SBATCH --account=cm30225
+
+#SBATCH --job-name=serial_relaxation
+#SBATCH --output=serial_relaxation.out
+#SBATCH --error=serial_relaxation.error
+
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --partition=teaching
+ 
+# Set max wallclock time
+#SBATCH --time=00:30:00
+ 
+# Mail alert at start, end and abortion of execution
+#SBATCH --mail-type=END
+ 
+# Send mail to this address
+#SBATCH --mail-user=mbw29@bath.ac.uk
+
+# Run the application
+bash serial.sh
