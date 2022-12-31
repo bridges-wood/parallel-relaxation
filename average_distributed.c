@@ -39,10 +39,9 @@ double *matrix_init(size_t size, enum log_level log_level);
 /// @param num_processes The number of processes to use
 /// @param rank The rank of the current process
 /// @param log_level The log level to use for debugging
-/// @return A pointer to the relaxed matrix
-double *relax_matrix_parallel(double *matrix, size_t size, double precision,
-                              int num_processes, int rank,
-                              enum log_level log_level);
+void relax_matrix_parallel(double *matrix, size_t size, double precision,
+                           int num_processes, int rank,
+                           enum log_level log_level);
 
 /// @brief Use the relaxation technique to compute the average of a group of
 /// cells in a matrix.
@@ -132,23 +131,34 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    double *matrix = matrix_init(size, log_level);
-
-    matrix = relax_matrix_parallel(matrix, size, precision, num_processes, rank,
-                                   log_level);
-    if (log_level <= LOG_INFO && rank == 0)
+    if (rank == 0)
     {
-        printf("Final matrix:\n");
-        print_matrix(matrix, size);
+        // Only allocate the matrix on the root process to save memory
+        double *matrix = matrix_init(size, log_level);
+
+        relax_matrix_parallel(matrix, size, precision, num_processes, rank,
+                              log_level);
+
+        if (log_level <= LOG_INFO)
+        {
+            printf("Final matrix:\n");
+            print_matrix(matrix, size);
+        }
+
+        // Free memory
+        free(matrix);
+        if (log_level <= LOG_ALL)
+            printf("Freed matrix at %p \n", matrix);
+    }
+    else
+    {
+        // No matrix to pass in on non-root processes
+        relax_matrix_parallel(NULL, size, precision, num_processes, rank,
+                              log_level);
     }
 
     // Finalise the MPI environment
     MPI_Finalize();
-
-    // Free memory
-    free(matrix);
-    if (log_level <= LOG_ALL)
-        printf("Freed matrix at %p \n", matrix);
 
     return 0;
 }
@@ -204,9 +214,9 @@ void print_matrix(double *matrix, size_t size)
 }
 
 // Use the relaxation method to relax a 2d array
-double *relax_matrix_parallel(double *matrix, size_t size, double precision,
-                              int num_processes, int rank,
-                              enum log_level log_level)
+void relax_matrix_parallel(double *matrix, size_t size, double precision,
+                           int num_processes, int rank,
+                           enum log_level log_level)
 {
     // Create arrays to store the scatter and gather counts and displacements
     int *scatter_displ = calloc(num_processes, sizeof(int));
@@ -278,7 +288,6 @@ double *relax_matrix_parallel(double *matrix, size_t size, double precision,
         MPI_Gatherv(recv_buffer, gather_count[rank], MPI_DOUBLE, matrix,
                     gather_count, gather_displ, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-
         iterations++;
         if (log_level <= LOG_DEBUG && rank == 0)
         {
@@ -297,8 +306,6 @@ double *relax_matrix_parallel(double *matrix, size_t size, double precision,
     free(gather_count);
     free(send_buffer);
     free(recv_buffer);
-
-    return matrix;
 }
 
 void relax_cells(double *input, double *result, bool *precision_reached,
